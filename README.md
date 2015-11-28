@@ -22,7 +22,7 @@ Contributing
 
 Contributions are welcome. 
 
-Before writing code, send mail to gary@beagledreams.com to discuss what you
+Before writing code, send mail to iammao@vip.qq.com to discuss what you
 plan to do. This gives me a chance to validate the design, avoid duplication of
 effort and ensure that the changes fit the goals of the project. Do not start
 the discussion with a pull request. 
