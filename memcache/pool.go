@@ -295,8 +295,8 @@ func (pc *pooledConnection) Err() error {
 func (pc *pooledConnection) Store(cmd, key string, value []byte, flags uint32, timeout int32, cas uint64) (err error) {
 	return pc.c.Store(cmd, key, value, flags, timeout, cas)
 }
-func (pc *pooledConnection) Get(cmd string, keys ...string) ([]*Reply, error) {
-	return pc.c.Get(cmd, keys...)
+func (pc *pooledConnection) Get(cmd string, cb func(*Reply), keys ...string) error {
+	return pc.c.Get(cmd, cb, keys...)
 }
 func (pc *pooledConnection) Delete(keys ...string) error {
 	return pc.c.Delete(keys...)
@@ -312,8 +312,8 @@ func (ec errorConnection) Close() error { return ec.err }
 func (ec errorConnection) Store(cmd, key string, value []byte, flags uint32, timeout int32, cas uint64) (err error) {
 	return ec.err
 }
-func (ec errorConnection) Get(cmd string, keys ...string) ([]*Reply, error) {
-	return nil, ec.err
+func (ec errorConnection) Get(cmd string, cb func(*Reply), keys ...string) error {
+	return ec.err
 }
 func (ec errorConnection) Delete(keys ...string) error {
 	return ec.err

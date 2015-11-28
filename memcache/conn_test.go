@@ -17,36 +17,34 @@ func TestConn(t *testing.T) {
 		t.FailNow()
 	}
 	// get
-	if replies, err := conn.Get("get", "test"); err != nil {
-		t.Errorf("Get() error(%v)", err)
-		t.FailNow()
-	} else {
-		reply := replies[0]
-		if reply.Key != "test" || !bytes.Equal(reply.Value, []byte("test")) || reply.Flags != 0 {
+	if err = conn.Get("get", func(r *Reply) {
+		if r.Key != "test" || !bytes.Equal(r.Value, []byte("test")) || r.Flags != 0 {
 			t.Error("Get() error, value")
 			t.FailNow()
 		}
+	}, "test"); err != nil {
+		t.Errorf("Get() error(%v)", err)
+		t.FailNow()
 	}
 	// gets
-	if replies, err := conn.Get("get", "test", "test1"); err != nil {
-		t.Errorf("Get() error(%v)", err)
-		t.FailNow()
-	} else {
-		if len(replies) != 1 {
-			t.Error("Get() error, length")
-		}
-		reply := replies[0]
-		if reply.Key != "test" || !bytes.Equal(reply.Value, []byte("test")) || reply.Flags != 0 {
+	if err = conn.Get("get", func(r *Reply) {
+		if r.Key != "test" || !bytes.Equal(r.Value, []byte("test")) || r.Flags != 0 {
 			t.Error("Get() error, value")
 			t.FailNow()
 		}
+	}, "test", "test1"); err != nil {
+		t.Errorf("Get() error(%v)", err)
+		t.FailNow()
 	}
 	// set
 	if err = conn.Store("set", "test1", []byte("test"), 0, 60, 0); err != nil {
 		t.Errorf("Store() error(%v)", err)
 		t.FailNow()
 	}
-	if replies, err := conn.Get("get", "test", "test1"); err != nil {
+	replies := make([]*Reply, 0, 2)
+	if err = conn.Get("get", func(r *Reply) {
+		replies = append(replies, r)
+	}, "test", "test1"); err != nil {
 		t.Errorf("Get() error(%v)", err)
 		t.FailNow()
 	} else {
@@ -90,14 +88,13 @@ func TestConn(t *testing.T) {
 		}
 	}
 	// get
-	if replies, err := conn.Get("get", "test2"); err != nil {
-		t.Errorf("Get() error(%v)", err)
-		t.FailNow()
-	} else {
-		reply := replies[0]
-		if reply.Key != "test2" || !bytes.Equal(reply.Value, []byte("1")) || reply.Flags != 0 {
+	if err = conn.Get("get", func(r *Reply) {
+		if r.Key != "test2" || !bytes.Equal(r.Value, []byte("1")) || r.Flags != 0 {
 			t.Error("Get() error, value")
 			t.FailNow()
 		}
+	}, "test2"); err != nil {
+		t.Errorf("Get() error(%v)", err)
+		t.FailNow()
 	}
 }

@@ -41,7 +41,7 @@ type Conn interface {
 	Store(cmd, key string, value []byte, flags uint32, timeout int32, cas uint64) (err error)
 
 	// Store sends a command to the server for gets data.
-	Get(cmd string, keys ...string) (replies []*Reply, err error)
+	Get(cmd string, cb func(*Reply), keys ...string) error
 
 	// Store sends a command to the server for delete data.
 	Delete(keys ...string) (err error)

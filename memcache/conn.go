@@ -96,7 +96,7 @@ func Dial(network, address string, options ...DialOption) (Conn, error) {
 	return c, nil
 }
 
-// NewConn returns a new Redigo connection for the given net connection.
+// NewConn returns a new gomemcache connection for the given net connection.
 func NewConn(netConn net.Conn, readTimeout, writeTimeout time.Duration) Conn {
 	return &conn{
 		conn:         netConn,
@@ -246,14 +246,14 @@ var (
 	replyClientErrorPrefix = []byte("CLIENT_ERROR ")
 )
 
-func (c *conn) readGetReply() (replies []*Reply, err error) {
+func (c *conn) readGetReply(cb func(*Reply)) (err error) {
 	var line []byte
 	for {
 		if line, err = c.readLine(); err != nil {
-			return nil, err
+			return
 		}
 		if len(line) == 0 {
-			return nil, protocolError("short response line")
+			return protocolError("short response line")
 		}
 		if bytes.Equal(line, replyEnd) {
 			return
@@ -261,34 +261,34 @@ func (c *conn) readGetReply() (replies []*Reply, err error) {
 		// VALUE <key> <flags> <bytes> [<cas unique>]\r\n
 		chunks := strings.Split(string(line), spaceStr)
 		if len(chunks) < 4 {
-			return nil, protocolError("corrupt get reply")
+			return protocolError("corrupt get reply")
 		}
 		if chunks[0] != replyValueStr {
-			return nil, protocolError("corrupt get reply, no except VALUE")
+			return protocolError("corrupt get reply, no except VALUE")
 		}
 		reply := new(Reply)
 		reply.Key = chunks[1]
 		flags64, err := strconv.ParseUint(chunks[2], 10, 32)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		reply.Flags = uint32(flags64)
 		size, err := strconv.ParseUint(chunks[3], 10, 64)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if len(chunks) > 4 {
 			if reply.Cas, err = strconv.ParseUint(chunks[4], 10, 64); err != nil {
-				return nil, err
+				return err
 			}
 		}
 		// <data block>\r\n
 		b := make([]byte, size+2)
 		if _, err = io.ReadFull(c.br, b); err != nil {
-			return nil, err
+			return err
 		}
 		reply.Value = b[:size]
-		replies = append(replies, reply)
+		cb(reply)
 	}
 
 	return
@@ -388,9 +388,9 @@ func (c *conn) Store(cmd, key string, value []byte, flags uint32, timeout int32,
 	return nil
 }
 
-func (c *conn) Get(cmd string, keys ...string) (replies []*Reply, err error) {
+func (c *conn) Get(cmd string, cb func(*Reply), keys ...string) (err error) {
 	if cmd == "" {
-		return nil, nil
+		return nil
 	}
 
 	if c.writeTimeout != 0 {
@@ -398,19 +398,19 @@ func (c *conn) Get(cmd string, keys ...string) (replies []*Reply, err error) {
 	}
 
 	if err = c.writeGetCommand(cmd, keys); err != nil {
-		return nil, c.fatal(err)
+		return c.fatal(err)
 	}
 
 	if err = c.bw.Flush(); err != nil {
-		return nil, c.fatal(err)
+		return c.fatal(err)
 	}
 
 	if c.readTimeout != 0 {
 		c.conn.SetReadDeadline(time.Now().Add(c.readTimeout))
 	}
 
-	if replies, err = c.readGetReply(); err != nil {
-		return nil, c.fatal(err)
+	if err = c.readGetReply(cb); err != nil {
+		return c.fatal(err)
 	}
 
 	return

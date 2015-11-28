@@ -21,15 +21,14 @@ func TestPool(t *testing.T) {
 		t.FailNow()
 	}
 	// get
-	if replies, err := c.Get("get", "test"); err != nil {
-		t.Errorf("Get() error(%v)", err)
-		t.FailNow()
-	} else {
-		reply := replies[0]
-		if reply.Key != "test" || !bytes.Equal(reply.Value, []byte("test")) || reply.Flags != 0 {
+	if err := c.Get("get", func(r *Reply) {
+		if r.Key != "test" || !bytes.Equal(r.Value, []byte("test")) || r.Flags != 0 {
 			t.Error("Get() error, value")
 			t.FailNow()
 		}
+	}, "test"); err != nil {
+		t.Errorf("Get() error(%v)", err)
+		t.FailNow()
 	}
 	c = p.Get()
 	defer c.Close()
@@ -39,14 +38,13 @@ func TestPool(t *testing.T) {
 		t.FailNow()
 	}
 	// get
-	if replies, err := c.Get("get", "test"); err != nil {
-		t.Errorf("Get() error(%v)", err)
-		t.FailNow()
-	} else {
-		reply := replies[0]
-		if reply.Key != "test" || !bytes.Equal(reply.Value, []byte("test")) || reply.Flags != 0 {
+	if err := c.Get("get", func(r *Reply) {
+		if r.Key != "test" || !bytes.Equal(r.Value, []byte("test")) || r.Flags != 0 {
 			t.Error("Get() error, value")
 			t.FailNow()
 		}
+	}, "test"); err != nil {
+		t.Errorf("Get() error(%v)", err)
+		t.FailNow()
 	}
 }
