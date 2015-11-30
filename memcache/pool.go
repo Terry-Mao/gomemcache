@@ -2,22 +2,11 @@ package memcache
 
 import (
 	"container/list"
-	"errors"
 	"sync"
 	"time"
 )
 
 var nowFunc = time.Now // for testing
-
-// ErrPoolExhausted is returned from a pool connection method (Do, Send,
-// Receive, Flush, Err) when the maximum number of database connections in the
-// pool has been reached.
-var ErrPoolExhausted = errors.New("gomemcache: connection pool exhausted")
-
-var (
-	errPoolClosed = errors.New("gomemcache: connection pool closed")
-	errConnClosed = errors.New("gomemcache: connection closed")
-)
 
 // Pool maintains a pool of connections. The application calls the Get method
 // to get a connection from the pool and the connection's Close method to
@@ -216,7 +205,7 @@ func (p *Pool) get() (Conn, error) {
 
 		if p.closed {
 			p.mu.Unlock()
-			return nil, errors.New("redigo: get on closed pool")
+			return nil, ErrPoolClosed
 		}
 
 		// Dial new connection if under limit.
@@ -282,7 +271,7 @@ func (pc *pooledConnection) Close() error {
 	if _, ok := c.(errorConnection); ok {
 		return nil
 	}
-	pc.c = errorConnection{errConnClosed}
+	pc.c = errorConnection{ErrConnClosed}
 
 	pc.p.put(c, false)
 	return nil
