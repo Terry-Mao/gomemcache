@@ -306,11 +306,11 @@ func (c *conn) readStoreReply() error {
 	case bytes.Equal(line, replyStored):
 		return nil
 	case bytes.Equal(line, replyNotStored):
-		return protocolError("not stored")
+		return ErrNotStored
 	case bytes.Equal(line, replyExists):
-		return protocolError("exists")
+		return ErrExists
 	case bytes.Equal(line, replyNotFound):
-		return protocolError("not found")
+		return ErrNotFound
 	}
 	return protocolError("unexpected response line")
 }
@@ -325,7 +325,7 @@ func (c *conn) readIncrDecrReply() (uint64, error) {
 	}
 	switch {
 	case bytes.Equal(line, replyNotFound):
-		return 0, protocolError("not found")
+		return 0, ErrNotFound
 	case bytes.HasPrefix(line, replyClientErrorPrefix):
 		errMsg := line[len(replyClientErrorPrefix):]
 		return 0, protocolError(errMsg)
@@ -350,12 +350,8 @@ func (c *conn) readDeleteReply() error {
 		return nil
 	case bytes.Equal(line, replyDeleted):
 		return nil
-	case bytes.Equal(line, replyNotStored):
-		return protocolError("not stored")
-	case bytes.Equal(line, replyExists):
-		return protocolError("exists")
 	case bytes.Equal(line, replyNotFound):
-		return protocolError("not found")
+		return ErrNotFound
 	}
 	return protocolError(string(line))
 }
