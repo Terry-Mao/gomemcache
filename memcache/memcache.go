@@ -41,6 +41,11 @@ type Conn interface {
 	Store(cmd, key string, value []byte, flags uint32, timeout int32, cas uint64) (err error)
 
 	// Store sends a command to the server for gets data.
+	// if key not found, callback will ignore that key.
+	// for example:
+	// if get not_exist_key, cb will not call at all.
+	// if get exist_key, not_exist_key, it will call get exist_key reply then
+	// call cb with the reply once, but ignore not_exist_key.
 	Get(cmd string, cb func(*Reply), keys ...string) error
 
 	// Store sends a command to the server for delete data.
