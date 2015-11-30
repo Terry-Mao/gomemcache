@@ -44,7 +44,7 @@ type Conn interface {
 	// if key not found, callback will ignore that key.
 	// for example:
 	// if get not_exist_key, cb will not call at all.
-	// if get exist_key, not_exist_key, it will call get exist_key reply then
+	// if get exist_key, not_exist_key, it will get exist_key reply then
 	// call cb with the reply once, but ignore not_exist_key.
 	Get(cmd string, cb func(*Reply), keys ...string) error
 
