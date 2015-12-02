@@ -224,7 +224,11 @@ func (c *conn) readLine() ([]byte, error) {
 	if i < 0 || p[i] != '\r' {
 		return nil, protocolError("bad response line terminator")
 	}
-	return p[:i], nil
+	line := p[:i]
+	if len(line) == 0 {
+		return nil, protocolError("short response line")
+	}
+	return line, nil
 }
 
 var (
@@ -250,10 +254,7 @@ func (c *conn) readGetReply(cb func(*Reply)) (err error) {
 	var line []byte
 	for {
 		if line, err = c.readLine(); err != nil {
-			return
-		}
-		if len(line) == 0 {
-			return protocolError("short response line")
+			return c.fatal(err)
 		}
 		if bytes.Equal(line, replyEnd) {
 			return
@@ -285,7 +286,7 @@ func (c *conn) readGetReply(cb func(*Reply)) (err error) {
 		// <data block>\r\n
 		b := make([]byte, size+2)
 		if _, err = io.ReadFull(c.br, b); err != nil {
-			return err
+			return c.fatal(err)
 		}
 		reply.Value = b[:size]
 		cb(reply)
@@ -297,10 +298,7 @@ func (c *conn) readGetReply(cb func(*Reply)) (err error) {
 func (c *conn) readStoreReply() error {
 	line, err := c.readLine()
 	if err != nil {
-		return err
-	}
-	if len(line) == 0 {
-		return protocolError("short response line")
+		return c.fatal(err)
 	}
 	switch {
 	case bytes.Equal(line, replyStored):
@@ -318,10 +316,7 @@ func (c *conn) readStoreReply() error {
 func (c *conn) readIncrDecrReply() (uint64, error) {
 	line, err := c.readLine()
 	if err != nil {
-		return 0, err
-	}
-	if len(line) == 0 {
-		return 0, protocolError("short response line")
+		return 0, c.fatal(err)
 	}
 	switch {
 	case bytes.Equal(line, replyNotFound):
@@ -340,10 +335,7 @@ func (c *conn) readIncrDecrReply() (uint64, error) {
 func (c *conn) readDeleteReply() error {
 	line, err := c.readLine()
 	if err != nil {
-		return err
-	}
-	if len(line) == 0 {
-		return protocolError("short response line")
+		return c.fatal(err)
 	}
 	switch {
 	case bytes.Equal(line, replyOK):
@@ -365,11 +357,11 @@ func (c *conn) Store(cmd, key string, value []byte, flags uint32, timeout int32,
 		c.conn.SetWriteDeadline(time.Now().Add(c.writeTimeout))
 	}
 
-	if err := c.writeStoreCommand(cmd, key, value, flags, timeout, cas); err != nil {
+	if err = c.writeStoreCommand(cmd, key, value, flags, timeout, cas); err != nil {
 		return c.fatal(err)
 	}
 
-	if err := c.bw.Flush(); err != nil {
+	if err = c.bw.Flush(); err != nil {
 		return c.fatal(err)
 	}
 
@@ -377,11 +369,8 @@ func (c *conn) Store(cmd, key string, value []byte, flags uint32, timeout int32,
 		c.conn.SetReadDeadline(time.Now().Add(c.readTimeout))
 	}
 
-	if err := c.readStoreReply(); err != nil {
-		return c.fatal(err)
-	}
-
-	return nil
+	err = c.readStoreReply()
+	return
 }
 
 func (c *conn) Get(cmd string, cb func(*Reply), keys ...string) (err error) {
@@ -405,10 +394,7 @@ func (c *conn) Get(cmd string, cb func(*Reply), keys ...string) (err error) {
 		c.conn.SetReadDeadline(time.Now().Add(c.readTimeout))
 	}
 
-	if err = c.readGetReply(cb); err != nil {
-		return c.fatal(err)
-	}
-
+	err = c.readGetReply(cb)
 	return
 }
 
@@ -433,10 +419,7 @@ func (c *conn) IncrDecr(cmd string, key string, delta uint64) (val uint64, err e
 		c.conn.SetReadDeadline(time.Now().Add(c.readTimeout))
 	}
 
-	if val, err = c.readIncrDecrReply(); err != nil {
-		return 0, c.fatal(err)
-	}
-
+	val, err = c.readIncrDecrReply()
 	return
 }
 
@@ -457,9 +440,6 @@ func (c *conn) Delete(keys ...string) (err error) {
 		c.conn.SetReadDeadline(time.Now().Add(c.readTimeout))
 	}
 
-	if err = c.readDeleteReply(); err != nil {
-		return c.fatal(err)
-	}
-
+	err = c.readDeleteReply()
 	return
 }

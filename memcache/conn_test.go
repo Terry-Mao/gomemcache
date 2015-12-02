@@ -11,6 +11,7 @@ func TestConn(t *testing.T) {
 		t.Errorf("Dial() error(%v)", err)
 		t.FailNow()
 	}
+	conn.Delete("delete", "test", "test1", "test2")
 	// set
 	if err = conn.Store("set", "test", []byte("test"), 0, 60, 0); err != nil {
 		t.Errorf("Store() error(%v)", err)
@@ -23,6 +24,14 @@ func TestConn(t *testing.T) {
 			t.FailNow()
 		}
 	}, "test"); err != nil {
+		t.Errorf("Get() error(%v)", err)
+		t.FailNow()
+	}
+	// get not exist
+	if err = conn.Get("get", func(r *Reply) {
+		t.Error("Get() not exist callback")
+		t.FailNow()
+	}, "not_exist"); err != nil {
 		t.Errorf("Get() error(%v)", err)
 		t.FailNow()
 	}
