@@ -32,8 +32,9 @@ type conn struct {
 	bw           *bufio.Writer
 	// Scratch space for formatting integers and floats.
 	numScratch [40]byte
-	// timer data
-	td *itime.TimerData
+	// timer
+	timer *itime.Timer
+	td    *itime.TimerData
 }
 
 // DialOption specifies an option for dialing a Memcache server.
@@ -42,6 +43,7 @@ type DialOption struct {
 }
 
 type dialOptions struct {
+	timer        *itime.Timer
 	readTimeout  time.Duration
 	writeTimeout time.Duration
 	dial         func(network, addr string) (net.Conn, error)
@@ -78,11 +80,19 @@ func DialNetDial(dial func(network, addr string) (net.Conn, error)) DialOption {
 	}}
 }
 
+// DialTimer specifies a caller's timer.
+func DialTimer(timer *itime.Timer) DialOption {
+	return DialOption{func(do *dialOptions) {
+		do.timer = timer
+	}}
+}
+
 // Dial connects to the Memcache server at the given network and
 // address using the specified options.
 func Dial(network, address string, options ...DialOption) (Conn, error) {
 	do := dialOptions{
-		dial: net.Dial,
+		dial:  net.Dial,
+		timer: timer,
 	}
 	for _, option := range options {
 		option.f(&do)
@@ -98,6 +108,7 @@ func Dial(network, address string, options ...DialOption) (Conn, error) {
 		br:           bufio.NewReader(netConn),
 		readTimeout:  do.readTimeout,
 		writeTimeout: do.writeTimeout,
+		timer:        do.timer,
 	}
 
 	return c, nil
@@ -358,7 +369,7 @@ func (c *conn) readDeleteReply() error {
 func (c *conn) startWriteDeadline() {
 	if c.writeTimeout != 0 {
 		// c.conn.SetWriteDeadline(time.Now().Add(c.writeTimeout))
-		c.td = timer.Start(c.writeTimeout, func() {
+		c.td = c.timer.Start(c.writeTimeout, func() {
 			c.fatal(ErrWriteTimeout)
 		})
 	}
@@ -373,7 +384,7 @@ func (c *conn) stopWriteDeadline() {
 func (c *conn) startReadDeadline() {
 	if c.readTimeout != 0 {
 		// c.conn.SetWriteDeadline(time.Now().Add(c.writeTimeout))
-		c.td = timer.Start(c.readTimeout, func() {
+		c.td = c.timer.Start(c.readTimeout, func() {
 			c.fatal(ErrReadTimeout)
 		})
 	}
