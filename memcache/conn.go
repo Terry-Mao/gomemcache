@@ -134,7 +134,7 @@ func (c *conn) fatal(err error) error {
 		c.conn.Close()
 	}
 	c.mu.Unlock()
-	return err
+	return c.err
 }
 
 func (c *conn) Err() error {
