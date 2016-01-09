@@ -5,12 +5,17 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	itime "github.com/Terry-Mao/marmot/time"
 	"io"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+)
+
+var (
+	timer = itime.NewTimer(512)
 )
 
 // conn is the low-level implementation of Conn
@@ -27,6 +32,8 @@ type conn struct {
 	bw           *bufio.Writer
 	// Scratch space for formatting integers and floats.
 	numScratch [40]byte
+	// timer data
+	td *itime.TimerData
 }
 
 // DialOption specifies an option for dialing a Memcache server.
@@ -348,28 +355,53 @@ func (c *conn) readDeleteReply() error {
 	return protocolError(string(line))
 }
 
+func (c *conn) startWriteDeadline() {
+	if c.writeTimeout != 0 {
+		// c.conn.SetWriteDeadline(time.Now().Add(c.writeTimeout))
+		c.td = timer.Start(c.writeTimeout, func() {
+			c.fatal(ErrWriteTimeout)
+		})
+	}
+}
+
+func (c *conn) stopWriteDeadline() {
+	if c.writeTimeout != 0 {
+		c.td.Stop()
+	}
+}
+
+func (c *conn) startReadDeadline() {
+	if c.readTimeout != 0 {
+		// c.conn.SetWriteDeadline(time.Now().Add(c.writeTimeout))
+		c.td = timer.Start(c.readTimeout, func() {
+			c.fatal(ErrReadTimeout)
+		})
+	}
+}
+
+func (c *conn) stopReadDeadline() {
+	if c.readTimeout != 0 {
+		c.td.Stop()
+	}
+}
+
 func (c *conn) Store(cmd, key string, value []byte, flags uint32, timeout int32, cas uint64) (err error) {
 	if cmd == "" {
 		return nil
 	}
 
-	if c.writeTimeout != 0 {
-		c.conn.SetWriteDeadline(time.Now().Add(c.writeTimeout))
+	c.startWriteDeadline()
+	if err = c.writeStoreCommand(cmd, key, value, flags, timeout, cas); err == nil {
+		err = c.bw.Flush()
 	}
-
-	if err = c.writeStoreCommand(cmd, key, value, flags, timeout, cas); err != nil {
+	c.stopWriteDeadline()
+	if err != nil {
 		return c.fatal(err)
 	}
 
-	if err = c.bw.Flush(); err != nil {
-		return c.fatal(err)
-	}
-
-	if c.readTimeout != 0 {
-		c.conn.SetReadDeadline(time.Now().Add(c.readTimeout))
-	}
-
+	c.startReadDeadline()
 	err = c.readStoreReply()
+	c.stopReadDeadline()
 	return
 }
 
@@ -378,23 +410,18 @@ func (c *conn) Get(cmd string, cb func(*Reply), keys ...string) (err error) {
 		return nil
 	}
 
-	if c.writeTimeout != 0 {
-		c.conn.SetWriteDeadline(time.Now().Add(c.writeTimeout))
+	c.startWriteDeadline()
+	if err = c.writeGetCommand(cmd, keys); err == nil {
+		err = c.bw.Flush()
 	}
-
-	if err = c.writeGetCommand(cmd, keys); err != nil {
+	c.stopWriteDeadline()
+	if err != nil {
 		return c.fatal(err)
 	}
 
-	if err = c.bw.Flush(); err != nil {
-		return c.fatal(err)
-	}
-
-	if c.readTimeout != 0 {
-		c.conn.SetReadDeadline(time.Now().Add(c.readTimeout))
-	}
-
+	c.startReadDeadline()
 	err = c.readGetReply(cb)
+	c.stopReadDeadline()
 	return
 }
 
@@ -403,43 +430,33 @@ func (c *conn) IncrDecr(cmd string, key string, delta uint64) (val uint64, err e
 		return 0, nil
 	}
 
-	if c.writeTimeout != 0 {
-		c.conn.SetWriteDeadline(time.Now().Add(c.writeTimeout))
+	c.startWriteDeadline()
+	if err = c.writeIncrDecrCommand(cmd, key, delta); err == nil {
+		err = c.bw.Flush()
 	}
-
-	if err = c.writeIncrDecrCommand(cmd, key, delta); err != nil {
+	c.stopWriteDeadline()
+	if err != nil {
 		return 0, c.fatal(err)
 	}
 
-	if err = c.bw.Flush(); err != nil {
-		return 0, c.fatal(err)
-	}
-
-	if c.readTimeout != 0 {
-		c.conn.SetReadDeadline(time.Now().Add(c.readTimeout))
-	}
-
+	c.startReadDeadline()
 	val, err = c.readIncrDecrReply()
+	c.stopReadDeadline()
 	return
 }
 
 func (c *conn) Delete(keys ...string) (err error) {
-	if c.writeTimeout != 0 {
-		c.conn.SetWriteDeadline(time.Now().Add(c.writeTimeout))
+	c.startWriteDeadline()
+	if err = c.writeDeleteCommand(keys); err == nil {
+		err = c.bw.Flush()
 	}
-
-	if err = c.writeDeleteCommand(keys); err != nil {
+	c.stopWriteDeadline()
+	if err != nil {
 		return c.fatal(err)
 	}
 
-	if err = c.bw.Flush(); err != nil {
-		return c.fatal(err)
-	}
-
-	if c.readTimeout != 0 {
-		c.conn.SetReadDeadline(time.Now().Add(c.readTimeout))
-	}
-
+	c.startReadDeadline()
 	err = c.readDeleteReply()
+	c.stopReadDeadline()
 	return
 }

@@ -5,9 +5,11 @@ import (
 )
 
 var (
-	ErrNotFound  = errors.New("gomemcache: key not found")
-	ErrExists    = errors.New("gomemcache: key exists")
-	ErrNotStored = errors.New("gomemcache: key not stored")
+	ErrReadTimeout  = errors.New("gomemcache: read timeout")
+	ErrWriteTimeout = errors.New("gomemcache: write timeout")
+	ErrNotFound     = errors.New("gomemcache: key not found")
+	ErrExists       = errors.New("gomemcache: key exists")
+	ErrNotStored    = errors.New("gomemcache: key not stored")
 
 	// ErrPoolExhausted is returned from a pool connection method (Store, Get,
 	// Delete, IncrDecr, Err) when the maximum number of database connections
